@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { CardType } from './types/types';
 import './App.css'
 import type { Card, ApiCard } from './types/types'
+import CardComponent from './components/CardComponent';
+
 
 function App() {
   const [cards, setCards] = useState<Card[]>([]);
@@ -14,20 +16,21 @@ useEffect(() => {
         .then(data => {
         const parsedCards = data.cards
             .map(parse_card)
-            .filter((card : any): card is Card => card !== null);
+            .filter((card : Card): card is Card => card !== null);
 
-        setCards(parsedCards);
+            setCards(parsedCards);
         })
         .catch(error => console.error(error));
     }, []);
+    console.log(cards.length)
   return (
     <>
         <section className='wrapper'>
             <div className='playArea'>
-
+                {cards.map((card, key) => (<CardComponent key={key} image={card.image}/>))}
             </div>
             <div className='playerArea'>
-                
+                 
             </div>
         </section>
         <h1 className='playerHP'>{health}</h1>
@@ -58,15 +61,20 @@ function parse_card(apiCard: ApiCard): Card | null {
 
     switch (apiCard.suit) {
         case "HEARTS":
+            if(cardNumber > 10){
+                return null;
+            }
             return {
                 cardType: CardType.potion,
-                cardNumber
+                cardNumber,
+                image: apiCard.image
             };
 
         case "SPADES":
             return {
                 cardType: CardType.monster,
-                cardNumber
+                cardNumber,
+                image: apiCard.image
             };
 
         case "CLUBS":
@@ -77,7 +85,8 @@ function parse_card(apiCard: ApiCard): Card | null {
 
             return {
                 cardType: CardType.weapon,
-                cardNumber
+                cardNumber,
+                image: apiCard.image
             };
 
         default:

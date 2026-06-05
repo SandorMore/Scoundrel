@@ -1,5 +1,3 @@
-import React from "react";
-
 export enum Suite {
     Hearts = 1,
     Spades,
@@ -17,6 +15,7 @@ export enum CardType {
 export type Card = {
     cardType : CardType,
     cardNumber : number,
+    image:string
 }
 
 export type ApiCard = {
