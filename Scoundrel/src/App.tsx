@@ -12,56 +12,77 @@ useEffect(() => {
     fetch("https://deckofcardsapi.com/api/deck/new/draw/?count=52")
         .then(response => response.json())
         .then(data => {
-            const parsedCards: Card[] = data.cards.map(parse_card);
-            setCards(parsedCards);
+        const parsedCards = data.cards
+            .map(parse_card)
+            .filter((card : any): card is Card => card !== null);
+
+        setCards(parsedCards);
         })
         .catch(error => console.error(error));
     }, []);
   return (
     <>
-        
+        <section className='wrapper'>
+            <div className='playArea'>
+
+            </div>
+            <div className='playerArea'>
+                
+            </div>
+        </section>
+        <h1 className='playerHP'>{health}</h1>
     </>
   )
 }
-function parse_card(apiCard: ApiCard): Card {
-    let cardType: CardType;
+function getCardValue(value:string) : number{
+    switch (value) {
+        case "ACE":
+            return 14;
+        case "JACK":
+            return 11;
+        case "QUEEN":
+            return 12;
+        case "KING":
+            return 13;
+        default:
+            return Number(value);
+    }
+}
+function parse_card(apiCard: ApiCard): Card | null {
+    // Discard jokers
+    if (apiCard.code.startsWith("X")) {
+        return null;
+    }
+
+    const cardNumber = getCardValue(apiCard.value);
 
     switch (apiCard.suit) {
         case "HEARTS":
-            cardType = CardType.potion;
-            break;
+            return {
+                cardType: CardType.potion,
+                cardNumber
+            };
+
         case "SPADES":
-            cardType = CardType.monster;
-            break;
+            return {
+                cardType: CardType.monster,
+                cardNumber
+            };
+
+        case "CLUBS":
+        case "DIAMONDS":
+            if (cardNumber > 10) {
+                return null;
+            }
+
+            return {
+                cardType: CardType.weapon,
+                cardNumber
+            };
+
         default:
-            cardType = CardType.weapon;
-            break;
+            return null;
     }
-
-    let cardNumber: number;
-
-    switch (apiCard.value) {
-        case "ACE":
-            cardNumber = 14;
-            break;
-        case "JACK":
-            cardNumber = 11;
-            break;
-        case "QUEEN":
-            cardNumber = 12;
-            break;
-        case "KING":
-            cardNumber = 13;
-            break;
-        default:
-            cardNumber = Number(apiCard.value);
-            break;
-    }
-
-    return {
-        cardType,
-        cardNumber
-    };
 }
 
 export default App
