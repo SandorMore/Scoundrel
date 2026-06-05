@@ -1,43 +1,70 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react';
 import { CardType } from './types/types';
-import './App.css'
-import type { Card, ApiCard } from './types/types'
+import './App.css';
+import type { Card, ApiCard } from './types/types';
 import CardComponent from './components/CardComponent';
-
+import { draw_cards } from './utils/Utils';
 
 function App() {
-  const [cards, setCards] = useState<Card[]>([]);
-  const [health, setHealth] = useState(20);
-  
-  //api : https://deckofcardsapi.com/api/deck/new/shuffle/?deck_count=1
-useEffect(() => {
-    fetch("https://deckofcardsapi.com/api/deck/new/draw/?count=52")
-        .then(response => response.json())
-        .then(data => {
-        const parsedCards = data.cards
-            .map(parse_card)
-            .filter((card : Card): card is Card => card !== null);
+    const [cards, setCards] = useState<Card[]>([]);
+    const [health] = useState(20);
+    const [currentHand, setCurrentHand] = useState<Card[]>([]);
+    const [drawCount, setDrawCount] = useState(0);
 
-            setCards(parsedCards);
-        })
-        .catch(error => console.error(error));
+    useEffect(() => {
+        fetch("https://deckofcardsapi.com/api/deck/new/draw/?count=52")
+            .then(response => response.json())
+            .then(data => {
+                const parsedCards = data.cards
+                    .map(parse_card)
+                    .filter((card: Card | null): card is Card => card !== null);
+
+                setCards(parsedCards);
+            })
+            .catch(error => console.error(error));
     }, []);
-    console.log(cards.length)
-  return (
-    <>
-        <section className='wrapper'>
-            <div className='playArea'>
-                {cards.map((card, key) => (<CardComponent key={key} image={card.image}/>))}
-            </div>
-            <div className='playerArea'>
-                 
-            </div>
-        </section>
-        <h1 className='playerHP'>{health}</h1>
-    </>
-  )
+
+    function drawHand() {
+        const { hand, remainingDeck } = draw_cards(cards);
+
+        setCurrentHand(hand);
+        setCards(remainingDeck);
+        setDrawCount(prev => prev + 1);
+    }
+
+    return (
+        <>
+            <section className="wrapper">
+                <div className="deckHolder">
+                    <h3>Deck</h3>
+                    <p>{cards.length} cards</p>
+                </div>
+
+                <div className="playArea">
+                </div>
+
+                <div className="playerArea">
+                    {currentHand.map((card, index) => (
+                        <div
+                            key={`${drawCount}-${index}`}
+                            className="dealtCard"
+                        >
+                            <CardComponent image={card.image} />
+                        </div>
+                    ))}
+                </div>
+            </section>
+
+            <h1 className="playerHP">{health}</h1>
+
+            <button onClick={drawHand}>
+                Draw
+            </button>
+        </>
+    );
 }
-function getCardValue(value:string) : number{
+
+function get_card_value(value: string): number {
     switch (value) {
         case "ACE":
             return 14;
@@ -51,19 +78,20 @@ function getCardValue(value:string) : number{
             return Number(value);
     }
 }
+
 function parse_card(apiCard: ApiCard): Card | null {
-    // Discard jokers
     if (apiCard.code.startsWith("X")) {
         return null;
     }
 
-    const cardNumber = getCardValue(apiCard.value);
+    const cardNumber = get_card_value(apiCard.value);
 
     switch (apiCard.suit) {
         case "HEARTS":
-            if(cardNumber > 10){
+            if (cardNumber > 10) {
                 return null;
             }
+
             return {
                 cardType: CardType.potion,
                 cardNumber,
@@ -94,4 +122,4 @@ function parse_card(apiCard: ApiCard): Card | null {
     }
 }
 
-export default App
+export default App;

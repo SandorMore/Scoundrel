@@ -1,6 +1,60 @@
-.playArea{
-  display: grid;
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
 }
-.cardComponent{
-  
+
+.deckHolder {
+    width: 250px;
+    height: 350px;
+    background-color: gray;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.playArea {
+    width: 75%;
+}
+
+.playerArea {
+    display: flex;
+    gap: 1rem;
+    min-height: 350px;
+}
+
+.dealtCard {
+    opacity: 0;
+    animation: deal 0.6s ease-out forwards;
+}
+
+.dealtCard:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.dealtCard:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.dealtCard:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+.dealtCard:nth-child(4) {
+    animation-delay: 0.6s;
+}
+
+@keyframes deal {
+    from {
+        opacity: 0;
+        transform: translate(-400px, -250px) rotate(-20deg);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(0, 0) rotate(0deg);
+    }
 }
