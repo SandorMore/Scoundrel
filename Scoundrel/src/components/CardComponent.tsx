@@ -1,10 +1,11 @@
 type CardProps = {
-    image:string
+    image:string,
+    onclick:any
 }
 
-const CardComponent = ({ image }: CardProps) => {
+const CardComponent = ({ image, onclick }: CardProps) => {
     return (
-        <div className="cardComponent"
+        <div onClick={onclick} className="cardComponent"
             style={{
                 width: "226px",
                 height: "314px",
