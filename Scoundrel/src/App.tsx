@@ -3,16 +3,19 @@ import { CardType } from './types/types';
 import './App.css';
 import type { Card, ApiCard } from './types/types';
 import CardComponent from './components/CardComponent';
-import { draw_cards } from './utils/Utils';
+import { draw_cards, draw_monster } from './utils/Utils';
 
 function App() {
     const [cards, setCards] = useState<Card[]>([]);
-    const [health] = useState(20);
+    const [health, setHealth] = useState(20);
     const [currentHand, setCurrentHand] = useState<Card[]>([]);
     const [drawCount, setDrawCount] = useState(0);
-    const [fleed, setFleed] = useState(false);
     const [selectedCard, setSelectedCard] = useState<Card | null>(null);
     const [flyState, setFlyState] = useState<{ card: Card; from: DOMRect; to: DOMRect; active: boolean } | null>(null);
+    const [currentMonster, setCurrentMonster] = useState<Card | null>(null);
+    const [message, setMessage] = useState('Draw cards to begin your hunt.');
+    const [status, setStatus] = useState<'ready' | 'playing' | 'won' | 'lost'>('ready');
+    const [monstersDefeated, setMonstersDefeated] = useState(0);
     const currCardRef = useRef<HTMLDivElement | null>(null);
     const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -30,11 +33,35 @@ function App() {
     }, []);
 
     function drawHand() {
-        const { hand, remainingDeck } = draw_cards(cards);
+        if (status === 'lost' || status === 'won') {
+            return;
+        }
+
+        let nextDeck = cards;
+        let monster = currentMonster;
+
+        if (!monster) {
+            const monsterResult = draw_monster(nextDeck);
+            monster = monsterResult.monster;
+            nextDeck = monsterResult.remainingDeck;
+
+            if (!monster) {
+                setStatus('won');
+                setMessage('You have defeated every monster!');
+                setCards(nextDeck);
+                return;
+            }
+
+            setCurrentMonster(monster);
+            setMessage(`A ${monster.cardNumber} health monster appears! Choose your cards and strike.`);
+        }
+
+        const { hand, remainingDeck } = draw_cards(nextDeck);
 
         setCurrentHand(hand);
         setCards(remainingDeck);
         setDrawCount(prev => prev + 1);
+        setStatus('playing');
     }
 
     useEffect(() => {
@@ -47,6 +74,10 @@ function App() {
     }, [flyState]);
 
     const handleSelect = (card: Card, index: number) => {
+        if (status !== 'playing' || !currentMonster && card.cardType !== CardType.potion) {
+            return;
+        }
+
         const key = `${drawCount}-${index}`;
         const source = cardRefs.current[key];
         const destination = currCardRef.current;
@@ -60,6 +91,7 @@ function App() {
 
         window.setTimeout(() => {
             setSelectedCard(card);
+            resolveCard(card);
             setFlyState(null);
         }, 420);
     }    
@@ -82,6 +114,104 @@ function App() {
         pointerEvents: 'none' as const
     } : undefined;
 
+    function resolveCard(card: Card) {
+        if (card.cardType === CardType.potion) {
+            setHealth(prev => Math.min(prev + card.cardNumber, 20));
+            setMessage(`You drink a potion and recover ${card.cardNumber} health.`);
+            return;
+        }
+
+        if (!currentMonster) {
+            setMessage('There is no monster to attack right now.');
+            return;
+        }
+
+        const attackValue = card.cardNumber;
+        const monsterValue = currentMonster.cardNumber;
+
+        if (attackValue >= monsterValue) {
+            setMonstersDefeated(prev => prev + 1);
+            const nextMonsterResult = draw_monster(cards);
+            setCards(nextMonsterResult.remainingDeck);
+
+            if (!nextMonsterResult.monster) {
+                setCurrentMonster(null);
+                setStatus('won');
+                setMessage(`You crushed the ${monsterValue} monster and have defeated every challenge!`);
+                return;
+            }
+
+            setCurrentMonster(nextMonsterResult.monster);
+            setMessage(`You defeated the ${monsterValue} monster! A ${nextMonsterResult.monster.cardNumber}-strength monster appears.`);
+            return;
+        }
+
+        const damage = monsterValue - attackValue;
+        setHealth(prev => {
+            const nextHealth = Math.max(prev - damage, 0);
+            if (nextHealth <= 0) {
+                setStatus('lost');
+                setMessage(`Your attack failed and the monster dealt ${damage} damage. You have fallen.`);
+            } else {
+                setMessage(`Your attack failed and the monster dealt ${damage} damage.`);
+            }
+            return nextHealth;
+        });
+    }
+
+    function handleFlee() {
+        if (!currentMonster || status !== 'playing') {
+            return;
+        }
+
+        const penalty = Math.min(currentMonster.cardNumber, 5);
+        setHealth(prev => {
+            const nextHealth = Math.max(prev - penalty, 0);
+            if (nextHealth <= 0) {
+                setStatus('lost');
+                setMessage(`You tried to flee but collapsed under pressure and lost ${penalty} health.`);
+            } else {
+                setMessage(`You fled and lost ${penalty} health. A new monster appears.`);
+            }
+            return nextHealth;
+        });
+
+        const nextMonsterResult = draw_monster(cards);
+        setCards(nextMonsterResult.remainingDeck);
+
+        if (!nextMonsterResult.monster) {
+            setCurrentMonster(null);
+            setStatus('won');
+            setMessage('You fled past the final monster and escaped victorious!');
+            return;
+        }
+
+        setCurrentMonster(nextMonsterResult.monster);
+    }
+
+    function resetGame() {
+        setCards([]);
+        setCurrentHand([]);
+        setDrawCount(0);
+        setSelectedCard(null);
+        setCurrentMonster(null);
+        setMessage('Draw cards to begin your hunt.');
+        setStatus('ready');
+        setMonstersDefeated(0);
+        setHealth(20);
+
+        fetch("https://deckofcardsapi.com/api/deck/new/draw/?count=52")
+            .then(response => response.json())
+            .then(data => {
+                const parsedCards = data.cards
+                    .map(parse_card)
+                    .filter((card: Card | null): card is Card => card !== null);
+
+                setCards(parsedCards);
+            })
+            .catch(error => console.error(error));
+    }
+
     return (
         <>
             <section className="wrapper">
@@ -91,6 +221,25 @@ function App() {
                 </div>
 
                 <div className="playArea">
+                    <div className="monsterBoard">
+                        <h3>Current Monster</h3>
+                        {currentMonster ? (
+                            <div className="monsterCard">
+                                <CardComponent onclick={() => undefined} image={currentMonster.image} />
+                                <p>Strength: {currentMonster.cardNumber}</p>
+                            </div>
+                        ) : (
+                            <div className="monsterEmpty">No monster</div>
+                        )}
+                    </div>
+
+                    <div className="statusBoard">
+                        <p>{message}</p>
+                        <p>Monsters defeated: {monstersDefeated}</p>
+                        <p>Deck remaining: {cards.length}</p>
+                        <button className="actionButton" onClick={handleFlee} disabled={!currentMonster || status !== 'playing'}>Flee</button>
+                        {(status === 'won' || status === 'lost') && <button className="actionButton" onClick={resetGame}>Restart</button>}
+                    </div>
                 </div>
 
                 <div className="playerArea">
@@ -121,9 +270,13 @@ function App() {
                 {flyState && <div className="flyingCard" style={flyingCardStyle} />}
             </section>
 
-            <h1 className="playerHP">{health}</h1>
+            <div className="playerFooter">
+                <h1 className="playerHP">Health: {health}</h1>
+                <span className="statusLabel">{status === 'won' ? 'Victory!' : status === 'lost' ? 'Defeat!' : 'Battle in progress'}</span>
+            </div>
 
-            { currentHand.length <= 1 && <button onClick={drawHand}>Draw</button>}
+            { currentHand.length <= 1 && status !== 'lost' && status !== 'won' && <button className="drawButton" onClick={drawHand}>Draw</button>}
+            {(status === 'won' || status === 'lost') && currentHand.length <= 1 && <button className="drawButton" onClick={resetGame}>Restart</button>}
         </>
     );
 }

@@ -1,3 +1,4 @@
+import { CardType } from "../types/types";
 import type { Card } from "../types/types";
 
 export function draw_cards(cards: Card[]) {
@@ -13,6 +14,25 @@ export function draw_cards(cards: Card[]) {
 
     return {
         hand,
+        remainingDeck
+    };
+}
+
+export function draw_monster(cards: Card[]) {
+    const remainingDeck = [...cards];
+    const monsterIndex = remainingDeck.findIndex(card => card.cardType === CardType.monster);
+
+    if (monsterIndex === -1) {
+        return {
+            monster: null,
+            remainingDeck
+        };
+    }
+
+    const [monster] = remainingDeck.splice(monsterIndex, 1);
+
+    return {
+        monster,
         remainingDeck
     };
 }
